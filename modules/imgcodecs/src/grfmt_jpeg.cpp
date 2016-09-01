@@ -670,6 +670,9 @@ bool JpegEncoder::write( const Mat& img, const std::vector<int>& params )
         int rst_interval = 0;
         int luma_quality = -1;
         int chroma_quality = -1;
+        int x_density = 96;
+        int y_density = 96;
+        int density_unit = 1;
 
         for( size_t i = 0; i < params.size(); i += 2 )
         {
@@ -703,6 +706,15 @@ bool JpegEncoder::write( const Mat& img, const std::vector<int>& params )
                     }
                 }
             }
+            if(params[i] == CV_IMWRITE_JPEG_DENSITY_UNIT){
+                density_unit = params[i+1];
+            }
+            if(params[i] == CV_IMWRITE_JPEG_XDENSITY){
+                x_density = params[i+1];
+            }
+            if(params[i] == CV_IMWRITE_JPEG_YDENSITY){
+                y_density = params[i+1];
+            }
 
             if( params[i] == CV_IMWRITE_JPEG_CHROMA_QUALITY )
             {
@@ -728,6 +740,10 @@ bool JpegEncoder::write( const Mat& img, const std::vector<int>& params )
             jpeg_simple_progression( &cinfo );
         if( optimize )
             cinfo.optimize_coding = TRUE;
+
+        cinfo.density_unit = (UINT8)density_unit;
+        cinfo.X_density = (UINT16)x_density;
+        cinfo.Y_density = (UINT16)y_density;
 
 #if JPEG_LIB_VERSION >= 70
         if (luma_quality >= 0 && chroma_quality >= 0)
