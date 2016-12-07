@@ -433,7 +433,75 @@ Mat imread( const String& filename, int flags )
     /// return a reference to the data
     return img;
 }
+/**
+ *
+ * @param filename
+ * @param flags
+ * @return
+ */
+    void jpegread( const String& filename, Mat* mat, unsigned char** iccData, unsigned int* iccLength,  int flags)
+{
+    *iccData = NULL;
+    *iccLength = 0;
+    IplImage* image = 0;
+    CvMat *matrix = 0;
+    Mat temp, *data = &temp;
+    JpegDecoder* decoder = new JpegDecoder();
 
+    int scale_denom = 1;
+    if( flags > IMREAD_LOAD_GDAL )
+    {
+        if( flags & IMREAD_REDUCED_GRAYSCALE_2 )
+            scale_denom = 2;
+        else if( flags & IMREAD_REDUCED_GRAYSCALE_4 )
+            scale_denom = 4;
+        else if( flags & IMREAD_REDUCED_GRAYSCALE_8 )
+            scale_denom = 8;
+    }
+
+    /// set the scale_denom in the driver
+    decoder->setScale( scale_denom );
+
+    /// set the filename in the driver
+    decoder->setSource( filename );
+
+    if( !decoder->readHeader() )
+        return;
+
+    // established the required input image size
+    CvSize size;
+    size.width = decoder->width();
+    size.height = decoder->height();
+
+    // grab the decoded type
+    int type = decoder->type();
+    if( (flags & IMREAD_LOAD_GDAL) != IMREAD_LOAD_GDAL && flags != IMREAD_UNCHANGED )
+    {
+        if( (flags & CV_LOAD_IMAGE_ANYDEPTH) == 0 )
+            type = CV_MAKETYPE(CV_8U, CV_MAT_CN(type));
+
+        if( (flags & CV_LOAD_IMAGE_COLOR) != 0 ||
+            ((flags & CV_LOAD_IMAGE_ANYCOLOR) != 0 && CV_MAT_CN(type) > 1) )
+            type = CV_MAKETYPE(CV_MAT_DEPTH(type), 3);
+        else
+            type = CV_MAKETYPE(CV_MAT_DEPTH(type), 1);
+    }
+
+    mat->create( size.height, size.width, type );
+    data = mat;
+
+    // read the image data
+    if( !decoder->readData( *data ))
+    {
+        cvReleaseImage( &image );
+        cvReleaseMat( &matrix );
+        if( mat )
+            mat->release();
+        return ;
+    }
+    *iccLength = decoder->icc_length;
+    *iccData = decoder->icc_data;
+}
 /**
 * Read a multi-page image
 *

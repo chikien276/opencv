@@ -151,6 +151,14 @@ Currently, the following file formats are supported:
 */
 CV_EXPORTS_W Mat imread( const String& filename, int flags = IMREAD_COLOR );
 
+/**
+ *
+ * @param filename Name of file to be loaded.
+ * @param flags Flag that can take values of cv::ImreadModes, default with cv::IMREAD_ANYCOLOR.
+ * @return pointer to JpegDecoder
+ */
+ void jpegread( const String& filename, Mat* mat, char* iccData, unsigned int iccLength,  int flags = IMREAD_COLOR );
+
 /** @brief Loads a multi-page image from a file.
 
 The function imreadmulti loads a multi-page image from the specified file into a vector of Mat objects.
