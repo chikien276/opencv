@@ -621,8 +621,7 @@ void DescriptorMatcher::checkMasks( InputArrayOfArrays _masks, int queryDescript
             {
                 int rows = trainDescCollection[i].empty() ? utrainDescCollection[i].rows : trainDescCollection[i].rows;
                     CV_Assert( masks[i].rows == queryDescriptorsCount &&
-                        (masks[i].cols == rows || masks[i].cols == rows) &&
-                        masks[i].type() == CV_8UC1 );
+                        masks[i].cols == rows && masks[i].type() == CV_8UC1);
             }
         }
     }
@@ -695,6 +694,11 @@ BFMatcher::BFMatcher( int _normType, bool _crossCheck )
 {
     normType = _normType;
     crossCheck = _crossCheck;
+}
+
+Ptr<BFMatcher> BFMatcher::create(int _normType, bool _crossCheck )
+{
+    return makePtr<BFMatcher>(_normType, _crossCheck);
 }
 
 Ptr<DescriptorMatcher> BFMatcher::clone( bool emptyTrainData ) const
@@ -1032,6 +1036,41 @@ Ptr<DescriptorMatcher> DescriptorMatcher::create( const String& descriptorMatche
     return dm;
 }
 
+Ptr<DescriptorMatcher> DescriptorMatcher::create(int matcherType)
+{
+
+
+    String name;
+
+    switch(matcherType)
+    {
+    case FLANNBASED:
+        name = "FlannBased";
+        break;
+    case BRUTEFORCE:
+        name = "BruteForce";
+        break;
+    case BRUTEFORCE_L1:
+        name = "BruteForce-L1";
+        break;
+    case BRUTEFORCE_HAMMING:
+        name = "BruteForce-Hamming";
+        break;
+    case BRUTEFORCE_HAMMINGLUT:
+        name = "BruteForce-HammingLUT";
+        break;
+    case BRUTEFORCE_SL2:
+        name = "BruteForce-SL2";
+        break;
+    default:
+        CV_Error( Error::StsBadArg, "Specified descriptor matcher type is not supported." );
+        break;
+    }
+
+    return DescriptorMatcher::create(name);
+
+}
+
 
 /*
  * Flann based matcher
@@ -1041,6 +1080,11 @@ FlannBasedMatcher::FlannBasedMatcher( const Ptr<flann::IndexParams>& _indexParam
 {
     CV_Assert( _indexParams );
     CV_Assert( _searchParams );
+}
+
+Ptr<FlannBasedMatcher> FlannBasedMatcher::create()
+{
+    return makePtr<FlannBasedMatcher>();
 }
 
 void FlannBasedMatcher::add( InputArrayOfArrays _descriptors )
@@ -1375,5 +1419,4 @@ void FlannBasedMatcher::radiusMatchImpl( InputArray _queryDescriptors, std::vect
 
     convertToDMatches( mergedDescriptors, indices, dists, matches );
 }
-
 }

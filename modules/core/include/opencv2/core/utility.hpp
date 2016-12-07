@@ -42,8 +42,8 @@
 //
 //M*/
 
-#ifndef __OPENCV_CORE_UTILITY_H__
-#define __OPENCV_CORE_UTILITY_H__
+#ifndef OPENCV_CORE_UTILITY_H
+#define OPENCV_CORE_UTILITY_H
 
 #ifndef __cplusplus
 #  error utility.hpp header must be compiled as C++
@@ -495,8 +495,8 @@ void Mat::forEach_impl(const Functor& operation) {
     {
     public:
         PixelOperationWrapper(Mat_<_Tp>* const frame, const Functor& _operation)
-            : mat(frame), op(_operation) {};
-        virtual ~PixelOperationWrapper(){};
+            : mat(frame), op(_operation) {}
+        virtual ~PixelOperationWrapper(){}
         // ! Overloaded virtual operator
         // convert range call to row call.
         virtual void operator()(const Range &range) const {
@@ -525,7 +525,7 @@ void Mat::forEach_impl(const Functor& operation) {
                     this->rowCall(&idx[0], COLS, DIMS);
                 }
             }
-        };
+        }
     private:
         Mat_<_Tp>* const mat;
         const Functor op;
@@ -562,12 +562,12 @@ void Mat::forEach_impl(const Functor& operation) {
                 op(*pixel++, static_cast<const int*>(idx));
                 idx[1]++;
             }
-        };
+        }
         PixelOperationWrapper& operator=(const PixelOperationWrapper &) {
             CV_Assert(false);
             // We can not remove this implementation because Visual Studio warning C4822.
             return *this;
-        };
+        }
     };
 
     parallel_for_(cv::Range(0, LINES), PixelOperationWrapper(reinterpret_cast<Mat_<_Tp>*>(this), operation));
@@ -650,8 +650,8 @@ private:
     virtual void  deleteDataInstance(void* pData) const {delete (T*)pData;} // Wrapper to release data by template
 
     // Disable TLS copy operations
-    TLSData(TLSData &) {};
-    TLSData& operator =(const TLSData &) {return *this;};
+    TLSData(TLSData &) {}
+    TLSData& operator =(const TLSData &) {return *this;}
 };
 
 /** @brief Designed for command line parsing
@@ -1029,7 +1029,7 @@ public:
 
     Node<OBJECT>* findChild(OBJECT& payload) const
     {
-        for(int i = 0; i < this->m_childs.size(); i++)
+        for(size_t i = 0; i < this->m_childs.size(); i++)
         {
             if(this->m_childs[i]->m_payload == payload)
                 return this->m_childs[i];
@@ -1039,10 +1039,10 @@ public:
 
     int findChild(Node<OBJECT> *pNode) const
     {
-        for (int i = 0; i < this->m_childs.size(); i++)
+        for (size_t i = 0; i < this->m_childs.size(); i++)
         {
             if(this->m_childs[i] == pNode)
-                return i;
+                return (int)i;
         }
         return -1;
     }
@@ -1059,12 +1059,20 @@ public:
 
     void removeChilds()
     {
-        for(int i = 0; i < m_childs.size(); i++)
+        for(size_t i = 0; i < m_childs.size(); i++)
         {
             m_childs[i]->m_pParent = 0; // avoid excessive parent vector trimming
             delete m_childs[i];
         }
         m_childs.clear();
+    }
+
+    int getDepth()
+    {
+        int   count   = 0;
+        Node *pParent = m_pParent;
+        while(pParent) count++, pParent = pParent->m_pParent;
+        return count;
     }
 
 public:
@@ -1076,7 +1084,10 @@ public:
 // Instrumentation external interface
 namespace instr
 {
-enum
+
+#if !defined OPENCV_ABI_CHECK
+
+enum TYPE
 {
     TYPE_GENERAL = 0,   // OpenCV API function, e.g. exported function
     TYPE_MARKER,        // Information marker
@@ -1084,49 +1095,72 @@ enum
     TYPE_FUN,           // Simple function call
 };
 
-enum
+enum IMPL
 {
     IMPL_PLAIN = 0,
     IMPL_IPP,
     IMPL_OPENCL,
 };
 
-enum
+struct NodeDataTls
 {
-    FLAGS_MAPPING = 0x01,
+    NodeDataTls()
+    {
+        m_ticksTotal = 0;
+    }
+    uint64      m_ticksTotal;
 };
 
 class CV_EXPORTS NodeData
 {
 public:
-    NodeData(const char* funName = 0, const char* fileName = NULL, int lineNum = 0, int instrType = TYPE_GENERAL, int implType = IMPL_PLAIN);
+    NodeData(const char* funName = 0, const char* fileName = NULL, int lineNum = 0, void* retAddress = NULL, bool alwaysExpand = false, cv::instr::TYPE instrType = TYPE_GENERAL, cv::instr::IMPL implType = IMPL_PLAIN);
     NodeData(NodeData &ref);
     ~NodeData();
     NodeData& operator=(const NodeData&);
 
     cv::String          m_funName;
-    int                 m_instrType;
-    int                 m_implType;
-    cv::String          m_fileName;
+    cv::instr::TYPE     m_instrType;
+    cv::instr::IMPL     m_implType;
+    const char*         m_fileName;
     int                 m_lineNum;
-
+    void*               m_retAddress;
+    bool                m_alwaysExpand;
     bool                m_funError;
-    volatile int        m_counter;
-    bool                m_stopPoint;
-    uint64              m_ticksMean;
 
+    volatile int         m_counter;
+    volatile uint64      m_ticksTotal;
+    TLSData<NodeDataTls> m_tls;
+    int                  m_threads;
+
+    // No synchronization
+    double getTotalMs()   const { return ((double)m_ticksTotal / cv::getTickFrequency()) * 1000; }
+    double getMeanMs()    const { return (((double)m_ticksTotal/m_counter) / cv::getTickFrequency()) * 1000; }
 };
 bool operator==(const NodeData& lhs, const NodeData& rhs);
 
 typedef Node<NodeData> InstrNode;
 
+CV_EXPORTS InstrNode* getTrace();
+
+#endif // !defined OPENCV_ABI_CHECK
+
+
 CV_EXPORTS bool       useInstrumentation();
 CV_EXPORTS void       setUseInstrumentation(bool flag);
-CV_EXPORTS InstrNode* getTrace();
 CV_EXPORTS void       resetTrace();
-CV_EXPORTS void       setFlags(int modeFlags);
-CV_EXPORTS int        getFlags();
+
+enum FLAGS
+{
+    FLAGS_NONE              = 0,
+    FLAGS_MAPPING           = 0x01,
+    FLAGS_EXPAND_SAME_NAMES = 0x02,
 };
+
+CV_EXPORTS void       setFlags(FLAGS modeFlags);
+static inline void    setFlags(int modeFlags) { setFlags((FLAGS)modeFlags); }
+CV_EXPORTS FLAGS      getFlags();
+}
 
 } //namespace cv
 
@@ -1134,4 +1168,4 @@ CV_EXPORTS int        getFlags();
 #include "opencv2/core/core_c.h"
 #endif
 
-#endif //__OPENCV_CORE_UTILITY_H__
+#endif //OPENCV_CORE_UTILITY_H
